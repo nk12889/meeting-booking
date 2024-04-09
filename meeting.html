@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule meetings</title>
+    <style>
+        .container {
+            height: 100px;
+            width: 200px;
+            border-radius: 2px;
+            border-color: rgb(216, 18, 18);
+            background-color: rgb(178, 237, 41);
+            text-align: center;
+            padding: 5px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .timing {
+            color: rgb(3, 184, 73);
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .slot {
+            color: rgb(35, 9, 233);
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        #bookingForm {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #bookedSchedule {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main">
+        <div class="container" onclick="showForm('2:00 PM', this)">
+            <p class="timing">2:00 PM</p>
+            <p class="slot">4 Available</p>
+        </div>
+        <div>
+            <div class="container" onclick="showForm('2:30 PM', this)">
+                <p class="timing">2:30 PM</p>
+                <p class="slot">4 Available</p>
+            </div>
+            <div class="container" onclick="showForm('3:00 PM', this)">
+                <p class="timing">3:00 PM</p>
+                <p class="slot">4 Available</p>
+            </div>
+            <div class="container" onclick="showForm('3:30 PM', this)">
+                <p class="timing">3:30 PM</p>
+                <p class="slot">4 Available</p>
+            </div>
+        </div>
+
+        <!-- Booking Form -->
+        <div id="bookingForm">
+            <h2>Book Meeting</h2>
+            <form id="bookMeetingForm" onsubmit="submitForm()">
+                <label for="name">Your Name:</label>
+                <input type="text" id="name" name="name" required>
+                <label for="email">Your Email:</label>
+                <input type="email" id="email" name="email" required>
+                <input type="hidden" id="time" name="time">
+                <button type="submit">Book</button>
+            </form>
+        </div>
+
+        <!-- Booked Schedule -->
+        <div id="bookedSchedule"></div>
+
+    </div>
+
+    <!-- JavaScript to handle form submission -->
+    <script>
+        const slots = document.querySelectorAll('.container');
+
+        function showForm(time, slotElement) {
+            // Set the selected time in the form
+            document.getElementById('time').value = time;
+            // Show the booking form
+            document.getElementById('bookingForm').style.display = 'block';
+            // Store the slot element for updating later
+            document.getElementById('bookingForm').dataset.slotElement = slotElement;
+        }
+
+        function submitForm() {
+            event.preventDefault(); // Prevent form submission
+            const formData = new FormData(document.getElementById('bookMeetingForm'));
+            const data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+
+            // Send a POST request to book the meeting
+            fetch('/book', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+                .then(response => response.text())
+                .then(message => {
+                    alert(message); // Show confirmation message
+                    // Clear the form
+                    document.getElementById('name').value = '';
+                    document.getElementById('email').value = '';
+                    // Hide the form
+                    document.getElementById('bookingForm').style.display = 'none';
+                    // Display booked schedule with cancellation option
+                    document.getElementById('bookedSchedule').innerHTML += `
+                        <p>Hi ${data.name}, please join the meeting via this G Meet link at ${data.time}</p>
+                        <button onclick="cancelBooking('${data.time}')">Cancel</button>
+                    `;
+                    // Update slot status to "Booked"
+                    const slotElement = document.getElementById('bookingForm').dataset.slotElement;
+                    const slotAvailableElement = slotElement.querySelector('.slot');
+                    const availableCount = parseInt(slotAvailableElement.textContent.split(' ')[0]) - 1;
+                    slotAvailableElement.textContent = `${availableCount} Available`;
+                    // Check if all slots are booked
+                    checkAllBooked();
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function cancelBooking(time) {
+            // Send a POST request to cancel the meeting
+            fetch('/cancel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ time: time })
+            })
+                .then(response => response.text())
+                .then(message => {
+                    alert(message); // Show cancellation confirmation message
+                    // Remove the booked schedule
+                    document.getElementById('bookedSchedule').innerHTML = '';
+                    // Update slot status to "Available"
+                    const slotElement = document.querySelector(`.container p.timing:contains('${time}')`).nextElementSibling;
+                    const availableCount = parseInt(slotElement.textContent.split(' ')[0]) + 1;
+                    slotElement.textContent = `${availableCount} Available`;
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function checkAllBooked() {
+            let allBooked = true;
+            slots.forEach(slot => {
+                if (parseInt(slot.querySelector('.slot').textContent) > 0) {
+                    allBooked = false;
+                    return;
+                }
+            });
+
+            if (allBooked) {
+                document.querySelector('.main').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+
+</html>
